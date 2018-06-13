@@ -9,6 +9,8 @@ x-base: &base
     - ".:/kt"
     - "$HOME/.kube:/root/.kube"
   working_dir: /app
+  environment:
+    AWS_REGION: ap-southeast-2
 
 services:
   kt:

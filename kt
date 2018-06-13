@@ -9,6 +9,8 @@ componentBuildPath="_all"
 componentTemplatePath=""
 env=""
 
+cfnSubfolder="cfn"
+
 parse_args() {
   while getopts ":e:dc:" opt; do
     case "${opt}" in
@@ -73,22 +75,47 @@ sub_compile() {
   fi
 
   mkdir -p _build/$env/$componentBuildPath/templates
-  gomplate --output-dir _build/$env/$componentBuildPath/templates --input-dir templates/$componentTemplatePath --datasource config=envs/$env.yaml
+  gomplate \
+    --output-dir _build/$env/$componentBuildPath/templates \
+    --input-dir templates/$componentTemplatePath \
+    --datasource config=envs/$env.yaml
 }
 
 sub_validate() {
   sub_compile
-  kubectl apply -R --validate --dry-run -f _build/$env/$componentBuildPath/templates/
+
+  # TODO: create a change-set in stackup for validation?
+
+  find _build/$env/$componentBuildPath/templates/ -type f \
+    | grep -v "/$cfnSubfolder/" \
+    | sort \
+    | xargs -n1 kubectl apply --validate --dry-run -f
 }
 
 sub_deploy() {
   sub_compile
-  kubectl apply -R -f _build/$env/$componentBuildPath/templates/
+
+  for f in $(find _build/$env/$componentBuildPath/templates/ -type f -path "*/$cfnSubfolder/*" | sort); do
+    stackup $env-$(basename $f .yaml) up -t $f
+  done
+
+  find _build/$env/$componentBuildPath/templates/ -type f \
+    | grep -v "/$cfnSubfolder/" \
+    | sort \
+    | xargs -n1 kubectl apply -f
 }
 
 sub_delete() {
   sub_compile
-  kubectl delete -R -f _build/$env/$componentBuildPath/templates/
+
+  find _build/$env/$componentBuildPath/templates/ -type f \
+    | grep -v "/$CFN_SUBFOLDER/" \
+    | sort -r \
+    | xargs -n1 kubectl delete -f
+
+  for f in $(find _build/$env/$componentBuildPath/templates/ -type f -path "*/$cfnSubfolder/*" | sort); do
+    stackup $env-$(basename $f .yaml) down
+  done
 }
 
 subcommand=$1
@@ -121,6 +148,17 @@ case $subcommand in
 
           gomplate() {
             echo gomplate $@
+          }
+
+          stackup() {
+            echo stackup $@
+          }
+
+          xargs() {
+            shift
+            while read line; do
+              echo $@ $line
+            done
           }
         fi
 

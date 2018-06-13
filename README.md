@@ -16,6 +16,8 @@ services:
       - "$HOME/.kube:/root/.kube"
       - "$HOME/.aws:/root/.aws"
       - ".:/app"
+    environment:
+      AWS_REGION: <your AWS Region>
 ```
 
 You can now run the tool as required with `docker-compose run --rm kt <command>` where `<command>` is one of the following:
@@ -37,7 +39,7 @@ You can now run the tool as required with `docker-compose run --rm kt <command>`
 The `kt` tool assumes the following conventions of your project:
 
 * You put your `gomplate` files in the `templates` folder. You can create sub folders under that to arbitrary depth.
-* Inside the `templates` folder you group components in their own subfolders. Each component subfolder must have a `k8s` subfolder where any Kubernetes manifests live, and can optionally have a `cfn` folder as well which would contain a AWS Cloudformation template.
+* Inside the `templates` folder you group components in their own subfolders. Each component subfolder may have a `cfn` folder as well which would contain an AWS Cloudformation template.
 * You put the environment files, AKA the `gomplate` datasource files in the `envs` folder and name each file after the environment.
 
 ## Templating
@@ -55,7 +57,7 @@ The template files are joined in alphabetical order. This means that one can con
 
 ## Deploying
 
-Any files in a component's `k8s` subfolder will be applied to the Kubernetes API server after being compiled with gomplate. If there is also a `cfn` folder that will be run with `stackup` as a AWS Cloudformation stack.
+Any files in a component's folder or any subfolder NOT named `cfn` will be applied to the Kubernetes API server after being compiled with gomplate. If there is also a `cfn` folder that will be run with `stackup` as a AWS Cloudformation stack.
 
 The naming convention for the Cloudformation stack will be `<env>-<cfn template filename>`. So if there is a file called `templates/component/cfn/backup-iam-role.yaml` and you run `kt` with `-e cluster01-test` the Cloudformation stack name will be `cluster01-test-backup-iam-role`.
 
