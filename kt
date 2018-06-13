@@ -47,7 +47,6 @@ sub_help() {
     echo "    clean     Clean the compile folder (under _build)"
     echo "    compile   Use gomplate to compile the templates"
     echo "    validate  Validate the compiled templates against a Kubernetes API server"
-    echo "    join      DEPRECATED: this is the same as compile now"
     echo "    deploy    Apply the compiled templates to a Kubernetes API server"
     echo "    delete    Delete the items in the compiled templates on a Kubernetes API server"
     echo ""
@@ -58,6 +57,21 @@ sub_clean() {
 }
 
 sub_compile() {
+  if [ -z "$env" ]; then
+    echo "Must provide an environment!" >&2
+    exit 1
+  fi
+
+  if [ ! -f "envs/$env.yaml" ]; then
+    echo "The env file envs/$env.yaml does not exist!" >&2
+    exit 2
+  fi
+
+  if [ ! -d "./templates/$componentTemplatePath" ]; then
+    echo "The component directory templates/$componentTemplatePath does not exist!" >&2
+    exit 2
+  fi
+
   mkdir -p _build/$env/$componentBuildPath/templates
   gomplate --output-dir _build/$env/$componentBuildPath/templates --input-dir templates/$componentTemplatePath --datasource config=envs/$env.yaml
 }
