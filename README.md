@@ -29,6 +29,7 @@ You can now run the tool as required with `docker-compose run --rm kt <command>`
 
 * -e ENVIRONMENT  The Kubernetes environment to deploy to (name of file in 'env' folder sans .yaml).
 * -c COMPONENT  The component (a subfolder under your templates dir) you want to deploy.
+* -d Provides a 'dry run' mode to see what commands WOULD have been executed.
 
 ## Conventions
 
