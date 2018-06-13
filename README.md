@@ -2,7 +2,7 @@
 
 # kt
 
-This repo provides a docker image as a tool to use `gomplate` with `kubectl` to deploy Kubernetes apps across different environments with templating.
+This repo provides a docker image as a tool to use `gomplate` with `kubectl` and `stackup` to deploy Kubernetes apps and AWS Cloudformation templates across different environments with templating.
 
 ## Usage
 
@@ -14,28 +14,30 @@ services:
     image: myobplatform/kt
     volumes:
       - "$HOME/.kube:/root/.kube"
+      - "$HOME/.aws:/root/.aws"
       - ".:/app"
 ```
 
 You can now run the tool as required with `docker-compose run --rm kt <command>` where `<command>` is one of the following:
 
 * *validate*: Compiles the templates with a given env (given via the `-e ENV` flag) and will validate the validity of the compiles manifests againsts the Kubernetes API server.
-* *deploy*: Will compile and deploy the manifests files for an environment (given via the `-e ENV` flag).
-* *delete*: **CAUTION**, will compile and join the manifests and then delete all the Objects on the API server that are named in the compiled manifests.
+* *deploy*: Will compile and deploy the manifests files for an environment (given via the `-e ENV` flag). If there is also a `cfn` folder it will stackup the Cloudformation template *before* it deploys the Kubernetes manifests.
+* *delete*: **CAUTION**, will compile and join the manifests and then delete all the Objects on the API server that are named in the compiled manifests. If there is a `cfn` folder it will also delete the Cloudformation stack *after* it deletes Kubernetes objects.
 
 ### Command line flags
 
 `kt` has two flags to use when running the commands above:
 
 * -e ENVIRONMENT  The Kubernetes environment to deploy to (name of file in 'env' folder sans .yaml).
-* -c COMPONENT  The component (a subfolder under your templates dir) you want to deploy.
 * -d Provides a 'dry run' mode to see what commands WOULD have been executed.
+* -c COMPONENT  The component (a subfolder under your templates dir) you want to deploy. You can group components inside folders and go arbitrarily deep. To deploy a component inside a group specify the path eg group/component1.
 
 ## Conventions
 
 The `kt` tool assumes the following conventions of your project:
 
 * You put your `gomplate` files in the `templates` folder. You can create sub folders under that to arbitrary depth.
+* Inside the `templates` folder you group components in their own subfolders. Each component subfolder must have a `k8s` subfolder where any Kubernetes manifests live, and can optionally have a `cfn` folder as well which would contain a AWS Cloudformation template.
 * You put the environment files, AKA the `gomplate` datasource files in the `envs` folder and name each file after the environment.
 
 ## Templating
@@ -51,20 +53,18 @@ On top of the gomplate functions, `kt` adds in the following additional power th
 
 The template files are joined in alphabetical order. This means that one can control the order in which objects are applied to the Kubernetes API server by simply prefixing files with numbers to force the ordering.
 
+## Deploying
+
+Any files in a component's `k8s` subfolder will be applied to the Kubernetes API server after being compiled with gomplate. If there is also a `cfn` folder that will be run with `stackup` as a AWS Cloudformation stack.
+
+The naming convention for the Cloudformation stack will be `<env>-<cfn template filename>`. So if there is a file called `templates/component/cfn/backup-iam-role.yaml` and you run `kt` with `-e cluster01-test` the Cloudformation stack name will be `cluster01-test-backup-iam-role`.
+
 ## Development
 
 `kt` is simply a combination of the following tools with folder conventions:
 
-* [gomplate](https://gomplate.hairyhenderson.ca/) to provide templating of Kubernetes manifests to allow for different environments and complex setup
-* [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) to due the actual deployment of the compiled template manifests.
+* [gomplate](https://gomplate.hairyhenderson.ca/) to provide templating of any files in the `templates` directory to allow for different environments and complex setup.
+* [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) to do the actual deployment of the compiled template manifests.
+* [stackup](https://github.com/realestate-com-au/stackup) to idempotently and synchronously deploy AWS Cloudformation stacks.
 
-By using pre made tools such as gomplate we get alot of useful extras already built in, such as extra functions for templating and a great dependency build tool that supports parallelisation and command line flags with zero effort or maintenance.
-
-This is sticking with the principle of not reinventing the wheel and rewriting a specific tool from scratch that would require more effort, testing and maintenance. Were `kt` to be useful and we found that we were fighting the above tools, or having to bend over backwards too much to have it work with them, this is when we would consider writing a tool from scratch.
-
-
-### Roadmap
-
-Assuming this tool is useful here are some extra features that could be implemented in the future:
-
-* Manage the lifecycle of objects by using a label for each project to be able to see if any objects need to be deleted as they are present on the API server but no longer present in manifest files.
+By using pre made tools such as gomplate we get alot of useful extras already built in, such as extra functions for templating.
