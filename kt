@@ -86,7 +86,7 @@ sub_validate() {
 
   # TODO: create a change-set in stackup for validation?
 
-  find _build/$env/$componentBuildPath/templates/ -type f \
+  find _build/$env/$componentBuildPath/templates/ -type f -name "*.yaml" \
     | grep -v "/$cfnSubfolder/" \
     | sort \
     | xargs -n1 kubectl apply --validate --dry-run -f
@@ -95,14 +95,15 @@ sub_validate() {
 sub_deploy() {
   sub_compile
 
-  for f in $(find _build/$env/$componentBuildPath/templates/ -type f -path "*/$cfnSubfolder/*" | sort); do
+  for f in $(find _build/$env/$componentBuildPath/templates/ -type f -name "*.yaml" -path "*/$cfnSubfolder/*" | sort); do
     stackup $env-$(basename $f .yaml) up -t $f
   done
 
-  find _build/$env/$componentBuildPath/templates/ -type f \
+  for f in $(find _build/$env/$componentBuildPath/templates/ -type f -name "*.yaml" \
     | grep -v "/$cfnSubfolder/" \
-    | sort \
-    | xargs -n1 kubectl apply -f
+    | sort); do
+    kubectl apply -f $f
+  done
 }
 
 sub_delete() {

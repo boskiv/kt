@@ -26,6 +26,8 @@ You can now run the tool as required with `docker-compose run --rm kt <command>`
 * *deploy*: Will compile and deploy the manifests files for an environment (given via the `-e ENV` flag). If there is also a `cfn` folder it will stackup the Cloudformation template *before* it deploys the Kubernetes manifests.
 * *delete*: **CAUTION**, will compile and join the manifests and then delete all the Objects on the API server that are named in the compiled manifests. If there is a `cfn` folder it will also delete the Cloudformation stack *after* it deletes Kubernetes objects.
 
+*Note: Currently `kt` will only treat files as being a Cloudformation or Kubernetes manifest file if they use the `.yaml` extension, NOT `.yml`. This is just to enforce consistenty.*
+
 ### Command line flags
 
 `kt` has two flags to use when running the commands above:
