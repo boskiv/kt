@@ -114,7 +114,7 @@ sub_delete() {
     | sort -r \
     | xargs -n1 kubectl delete -f
 
-  for f in $(find _build/$env/$componentBuildPath/templates/ -type f -path "*/$cfnSubfolder/*" | sort); do
+  for f in $(find _build/$env/$componentBuildPath/templates/ -type f -path "*/$cfnSubfolder/*" -name "*.yaml" | sort); do
     stackup $env-$(basename $f .yaml) down
   done
 }
