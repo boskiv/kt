@@ -7,12 +7,9 @@ services:
   - docker
 
 script:
-  - docker-compose run --rm kt clean
-  - docker-compose run --rm kt clean -d
-  - docker-compose run --rm kt compile -e qa
-  - docker-compose run --rm kt compile -e qa -d
-  - docker-compose run --rm kt compile -e preprod -c mycomponent
-  - docker-compose run --rm kt compile -e preprod -c mycomponent -d
+  - docker-compose build test
+  - docker-compose run --rm test
+  - docker build .
 
 after_success:
   - bin/deploy "${TRAVIS_TAG:-dev}"

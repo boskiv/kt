@@ -3,22 +3,22 @@ version: "2.3"
 x-base: &base
   build:
     context: .
-    target: app
+    target: build
   volumes:
-    - "./example:/app"
-    - ".:/kt"
-    - "$HOME/.kube:/root/.kube"
-  working_dir: /app
+    - ".:/go/src/app"
   environment:
     AWS_REGION: ap-southeast-2
 
 services:
   kt:
-    <<: *base
-    entrypoint:
-      - /kt/kt
+    build: .
+    volumes:
+      - "./example:/app"
 
   sh:
     <<: *base
-    entrypoint:
-      - bash
+    command: sh
+
+  test:
+    <<: *base
+    command: go test
