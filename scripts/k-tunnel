@@ -1,0 +1,40 @@
+#!/bin/bash
+
+set -ex
+
+if [ "$#" != 3 ]; then
+    echo "Run a pod inside Kubernetes to be able to tunnel thru to something." >&2
+    echo "Usage: $0 <namespace> <docker image> <exposed port>" >&2
+    exit 1
+fi
+
+NAMESPACE=$1
+IMAGE=$2
+PORT=$3
+
+POD_NAME="ktunnel-${USER}-$(date +%s)"
+
+function cleanup {
+    kubectl -n $NAMESPACE delete pod $POD_NAME
+}
+
+trap cleanup EXIT
+
+kubectl run -n $NAMESPACE $POD_NAME \
+    --generator run-pod/v1 \
+    --pod-running-timeout=30m \
+    --image=$IMAGE
+
+# WAIT FOR POD TO BE READY
+while true
+do
+    sleep 1
+    STATUS=$(kubectl -n $NAMESPACE get pod $POD_NAME -o template --template={{.status.phase}})
+    echo "Waiting for pod to be ready: $STATUS ..."
+    if [[ $STATUS == *"Running"* ]]; then
+        break
+    fi
+done
+
+echo "Access on http://localhost:8080"
+kubectl -n $NAMESPACE port-forward $POD_NAME 8080:$PORT

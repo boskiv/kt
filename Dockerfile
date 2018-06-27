@@ -7,6 +7,7 @@ RUN apk add -U bash ruby ruby-json
 COPY --from=gomplate /gomplate /usr/bin/
 COPY --from=kubectl /usr/local/bin/kubectl /usr/bin/
 RUN gem install -N stackup:1.3.1
+COPY ./scripts/ /usr/bin/
 COPY ./kt /usr/bin/
 WORKDIR /app
 ENTRYPOINT ["/usr/bin/kt"]

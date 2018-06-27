@@ -1,0 +1,26 @@
+#!/bin/bash
+
+set -e
+
+if [ "$#" != 3 ]; then
+  echo "Port forward to the first pod in a deployment." >&2
+  echo "Usage: $0 <namespace> <deployment> <port>" >&2
+  exit 1
+fi
+
+NAMESPACE=$1
+DEPLOYMENT=$2
+PORT=$3
+
+labels=$(kubectl -n $NAMESPACE get deployment $DEPLOYMENT -o json \
+        | jq -r -M '.spec.selector.matchLabels | [keys, map(.)] | transpose | map("\(.[0])=\(.[1])") | join(",")')
+
+pod=$(kubectl -n $NAMESPACE get pods -l $labels -o json | jq -r -M '.items[0].metadata.name')
+
+if [ "$pod" == "null" ]; then
+  echo "There are no pods for deployment $DEPLOYMENT!" >&2
+  exit 2
+fi
+
+echo "Forwarding to http://localhost:8081"
+kubectl -n $NAMESPACE port-forward $pod 8081:$PORT

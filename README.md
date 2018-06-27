@@ -63,6 +63,10 @@ Any files in a component's folder or any subfolder NOT named `cfn` will be appli
 
 The naming convention for the Cloudformation stack will be `<env>-<cfn template filename>`. So if there is a file called `templates/component/cfn/backup-iam-role.yaml` and you run `kt` with `-e cluster01-test` the Cloudformation stack name will be `cluster01-test-backup-iam-role`.
 
+## Helper scripts
+
+`kt` comes with some extra scripts to help do odd jobs with Kubernetes. See the [./scripts](./scripts) folder for what they are and what they do. All these scripts are available on the `$PATH` inside the kt docker image so can be accessed easily by overriding the `entrypoint` when needed, eg `docker-compose run --entrypoint k-forward kt <extra args>`.
+
 ## Development
 
 `kt` is simply a combination of the following tools with folder conventions:
