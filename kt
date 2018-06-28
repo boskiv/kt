@@ -59,15 +59,12 @@ sub_clean() {
 }
 
 is_empty_file() {
-  # File exists
-  if [ -f $1 ]; then
-    if [ -s $1 ]; then
-      # Has content but with all whitespace
-      grep -q '[^[:space:]]' < $1 && echo "False" || echo "True"
-    else
-      # File is empty
-      echo "True"
-    fi
+  if [ -s $1 ]; then
+    # File exists and the content with all whitespace
+    grep -q '[^[:space:]]' < $1 && echo "False" || echo "True"
+  else
+    # File doesn't exist or is empty
+    echo "True"
   fi
 }
 
