@@ -58,6 +58,19 @@ sub_clean() {
   rm -rf _build
 }
 
+is_empty_file() {
+  # File exists
+  if [ -f $1 ]; then
+    if [ -s $1 ]; then
+      # Has content but with all whitespace
+      grep -q '[^[:space:]]' < $1 && echo "False" || echo "True"
+    else
+      # File is empty
+      echo "True"
+    fi
+  fi
+}
+
 sub_compile() {
   if [ -z "$env" ]; then
     echo "Must provide an environment!" >&2
@@ -102,7 +115,9 @@ sub_deploy() {
   for f in $(find _build/$env/$componentBuildPath/templates/ -type f -name "*.yaml" \
     | grep -v "/$cfnSubfolder/" \
     | sort); do
-    kubectl apply -f $f
+    if [ $(is_empty_file $f) != "True" ]; then
+      kubectl apply -f $f
+    fi
   done
 }
 
