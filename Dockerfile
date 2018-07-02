@@ -6,7 +6,7 @@ FROM alpine:3.7 as app
 RUN apk add -U bash ruby ruby-json jq
 COPY --from=gomplate /gomplate /usr/bin/
 COPY --from=kubectl /usr/local/bin/kubectl /usr/bin/
-RUN gem install -N stackup:1.3.1
+RUN gem install -N stackup:1.3.1 yaml2json:0.0.2
 COPY ./scripts/ /usr/bin/
 COPY ./kt /usr/bin/
 WORKDIR /app
