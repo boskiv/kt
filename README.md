@@ -32,7 +32,8 @@ You can now run the tool as required with `docker-compose run --rm kt <command>`
 
 `kt` has two flags to use when running the commands above:
 
-* -e ENVIRONMENT  The Kubernetes environment to deploy to (name of file in 'env' folder sans .yaml).
+* -e ENVIRONMENT  The environment to deploy to (name of parameter file in 'env' folder sans .yaml).
+  Multiple environment files can be given by using this flag multiple times. 
 * -d Provides a 'dry run' mode to see what commands WOULD have been executed.
 * -c COMPONENT  The component (a subfolder under your templates dir) you want to deploy. You can group components inside folders and go arbitrarily deep. To deploy a component inside a group specify the path eg group/component1.
 
@@ -43,6 +44,7 @@ The `kt` tool assumes the following conventions of your project:
 * You put your `gomplate` files in the `templates` folder. You can create sub folders under that to arbitrary depth.
 * Inside the `templates` folder you group components in their own subfolders. Each component subfolder may have a `cfn` folder as well which would contain an AWS Cloudformation template.
 * You put the environment files, AKA the `gomplate` datasource files in the `envs` folder and name each file after the environment.
+* When using multiple environment files, the last file provided will be the used as the name of the environment. This name will be used as a prefix for cloudformation stacks.
 
 ## Templating
 
@@ -56,6 +58,13 @@ On top of the gomplate functions, `kt` adds in the following additional power th
 ### Ordering
 
 The template files are joined in alphabetical order. This means that one can control the order in which objects are applied to the Kubernetes API server by simply prefixing files with numbers to force the ordering.
+
+If multiple environment files are given on the command line, the order of environments given is important. Environments given last will take precedence. Values in later environment files will clobber those same values in previous environments.
+
+Given the below example of specifying two environments, values provided in cerberus.yaml will overwrite any matching values in development.yaml. Additionally, any cloudformation stacks being provisioned will be prefixed with the environment name `cerberus`.
+```
+kt validate -e development -e cerberus
+```
 
 ## Deploying
 

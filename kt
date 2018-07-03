@@ -7,7 +7,8 @@ DEBUG=""
 progName=$(basename $0)
 componentBuildPath="_all"
 componentTemplatePath=""
-env=""
+declare -a envs yparams jparams
+environment=""
 
 cfnSubfolder="cfn"
 
@@ -19,8 +20,7 @@ parse_args() {
           echo "-e needs an environment" >&2
           exit 1
         fi
-
-        env=$OPTARG
+        envs+=($OPTARG)
         ;;
       d)
         DEBUG="ON"
@@ -43,7 +43,7 @@ parse_args() {
 }
 
 sub_help() {
-    echo "Usage: $progName <subcommand> -e ENVIRONMENT [-c COMPONENT] [-d]"
+    echo "Usage: $progName <subcommand> -e ENVIRONMENT [-e ENVIRONMENT...] [-c COMPONENT] [-d]"
     echo ""
     echo "Subcommands:"
     echo "    clean     Clean the compile folder (under _build)"
@@ -68,35 +68,55 @@ is_empty_file() {
   fi
 }
 
-sub_compile() {
-  if [ -z "$env" ]; then
-    echo "Must provide an environment!" >&2
-    exit 1
-  fi
+compile_environment() {
 
-  if [ ! -f "envs/$env.yaml" ]; then
-    echo "The env file envs/$env.yaml does not exist!" >&2
-    exit 2
-  fi
+  echo "compiling environment: ${envs[@]}"
+  for env in "${envs[@]}"; do
+    if [ ! -f "envs/$env.yaml" ]; then
+      echo "The env file envs/$env.yaml does not exist!" >&2
+      exit 2
+    fi
+    yparams+=(envs/$env.yaml)
+    environment=$env
+  done
+
+  # we have valid environment files
+  # the last provided environment is what we use to name things with
+  mkdir -p _build/$environment
+
+  indices=${!envs[*]}
+  for i in $indices; do
+    jparams[$i]=_build/$environment/${envs[$i]}.json
+    cat ${yparams[$i]} | yaml2json > ${jparams[$i]}
+  done
+  # merge all environs 
+  cat ${jparams[@]} | jq --slurp 'reduce .[] as $item ({}; . * $item)' > _build/$environment/parameters.json
+
+}
+
+sub_compile() {
 
   if [ ! -d "./templates/$componentTemplatePath" ]; then
     echo "The component directory templates/$componentTemplatePath does not exist!" >&2
     exit 2
   fi
 
-  mkdir -p _build/$env/$componentBuildPath/templates
+  if [ -z "$environment" ]; then
+    echo "No environment is set!" >&2
+    exit 2
+  fi
+
   gomplate \
-    --output-dir _build/$env/$componentBuildPath/templates \
+    --output-dir _build/$environment/$componentBuildPath/templates \
     --input-dir templates/$componentTemplatePath \
-    --datasource config=envs/$env.yaml
+    --datasource config=_build/$environment/parameters.json
 }
 
 sub_validate() {
   sub_compile
 
   # TODO: create a change-set in stackup for validation?
-
-  find _build/$env/$componentBuildPath/templates/ -type f -name "*.yaml" \
+  find _build/$environment/$componentBuildPath/templates/ -type f -name "*.yaml" \
     | grep -v "/$cfnSubfolder/" \
     | sort \
     | xargs -n1 kubectl apply --validate --dry-run -f
@@ -105,11 +125,11 @@ sub_validate() {
 sub_deploy() {
   sub_compile
 
-  for f in $(find _build/$env/$componentBuildPath/templates/ -type f -name "*.yaml" -path "*/$cfnSubfolder/*" | sort); do
-    stackup $env-$(basename $f .yaml) up -t $f
+  for f in $(find _build/$environment/$componentBuildPath/templates/ -type f -name "*.yaml" -path "*/$cfnSubfolder/*" | sort); do
+    stackup $environment-$(basename $f .yaml) up -t $f
   done
 
-  for f in $(find _build/$env/$componentBuildPath/templates/ -type f -name "*.yaml" \
+  for f in $(find _build/$environment/$componentBuildPath/templates/ -type f -name "*.yaml" \
     | grep -v "/$cfnSubfolder/" \
     | sort); do
     if [ $(is_empty_file $f) != "True" ]; then
@@ -121,15 +141,16 @@ sub_deploy() {
 sub_delete() {
   sub_compile
 
-  find _build/$env/$componentBuildPath/templates/ -type f \
+  find _build/$environment/$componentBuildPath/templates/ -type f \
     | grep -v "/$CFN_SUBFOLDER/" \
     | sort -r \
     | xargs -n1 kubectl delete -f
 
-  for f in $(find _build/$env/$componentBuildPath/templates/ -type f -path "*/$cfnSubfolder/*" -name "*.yaml" | sort); do
-    stackup $env-$(basename $f .yaml) down
+  for f in $(find _build/$environment/$componentBuildPath/templates/ -type f -path "*/$cfnSubfolder/*" -name "*.yaml" | sort); do
+    stackup $environment-$(basename $f .yaml) down
   done
 }
+
 
 subcommand=$1
 case $subcommand in
@@ -141,7 +162,11 @@ case $subcommand in
         parse_args $@
         shift $((OPTIND-1))
 
-        echo "env: $env"
+        if [ ${#envs[@]} -ge 1 ]; then
+          compile_environment
+          echo "environment: $environment"
+        fi
+
         echo "componentBuildPath: $componentBuildPath"
         echo "componentTemplatePath: $componentTemplatePath"
         echo "command: $subcommand"
