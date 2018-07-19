@@ -144,7 +144,7 @@ sub_delete() {
   sub_compile
 
   find _build/$environment/$componentBuildPath/templates/ -type f \
-    | grep -v "/$CFN_SUBFOLDER/" \
+    | grep -v "/$cfnSubFolder/" \
     | sort -r \
     | xargs -n1 kubectl delete -f
 
