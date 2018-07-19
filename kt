@@ -126,7 +126,9 @@ sub_deploy() {
   sub_compile
 
   for f in $(find _build/$environment/$componentBuildPath/templates/ -type f -name "*.yaml" -path "*/$cfnSubfolder/*" | sort); do
-    stackup $environment-$(basename $f .yaml) up -t $f
+    if [ $(is_empty_file $f) != "True" ]; then
+      stackup $environment-$(basename $f .yaml) up -t $f
+    fi
   done
 
   for f in $(find _build/$environment/$componentBuildPath/templates/ -type f -name "*.yaml" \
