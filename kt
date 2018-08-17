@@ -89,7 +89,7 @@ compile_environment() {
     jparams[$i]=_build/$environment/${envs[$i]}.json
     cat ${yparams[$i]} | yaml2json > ${jparams[$i]}
   done
-  # merge all environs 
+  # merge all environs
   cat ${jparams[@]} | jq --slurp 'reduce .[] as $item ({}; . * $item)' > _build/$environment/parameters.json
 
 }
@@ -142,12 +142,13 @@ sub_deploy() {
 
 sub_delete() {
   sub_compile
-
-  find _build/$environment/$componentBuildPath/templates/ -type f \
-    | grep -v "/$cfnSubFolder/" \
-    | sort -r \
-    | xargs -n1 kubectl delete -f
-
+  for f in $(find _build/$environment/$componentBuildPath/templates/ -type f -name "*.yaml" \
+    | grep -v "/$cfnSubfolder/" \
+    | sort -r); do
+    if [ $(is_empty_file $f) != "True" ]; then
+      kubectl delete -f $f
+    fi
+  done
   for f in $(find _build/$environment/$componentBuildPath/templates/ -type f -path "*/$cfnSubfolder/*" -name "*.yaml" | sort); do
     stackup $environment-$(basename $f .yaml) down
   done
