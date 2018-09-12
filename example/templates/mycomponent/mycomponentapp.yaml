@@ -7,12 +7,14 @@ metadata:
   namespace: default
   labels:
     app: mycomponentapp
+    parameter: {{ $config.param }}
 spec:
   replicas: 1
   template:
     metadata:
       labels:
         app: mycomponentapp
+        parameter: {{ $config.param }}
       annotations:
         config/checksum: "{{ crypto.SHA256 (file.Read "templates/initial/00-namespaces.yaml") }}"
     spec:
@@ -23,3 +25,5 @@ spec:
         env:
           - name: "MYENVSPECIFICVAR"
             value: "{{ $config.myenvspecicvar }}"
+          - name: "MYOTHERENVSPECIFICVAR"
+            value: "{{ $config.my.other.env.specific.variable }}"

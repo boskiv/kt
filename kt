@@ -7,13 +7,15 @@ DEBUG=""
 progName=$(basename $0)
 componentBuildPath="_all"
 componentTemplatePath=""
-declare -a envs yparams jparams
+declare -a envs yenvs yparams jparams
 environment=""
+declare -A cliparam
+cliparamJson=""
 
 cfnSubfolder="cfn"
 
 parse_args() {
-  while getopts ":e:dc:" opt; do
+  while getopts ":e:dc:p:" opt; do
     case "${opt}" in
       e)
         if [[ "$OPTARG" == "" ]]; then
@@ -34,6 +36,16 @@ parse_args() {
         componentTemplatePath=$OPTARG
         componentBuildPath=$OPTARG
         ;;
+      p)
+        if [[ "$OPTARG" == "" ]]; then
+          echo "-p needs a key=value pair" >&2
+          exit 1
+        fi
+        key=$(echo $OPTARG|cut -f1 -d"=")
+        value=$(echo $OPTARG|cut -f2 -d"=")
+        [[ -z "$key" || -z "$value" ]] && echo "invalid parameter given: -$opt $OPTARG" && exit 1
+        cliparam[$key]=$value
+        ;;
       *)
         echo "Invalid argument passed: -$opt" >&2
         exit 1
@@ -43,7 +55,7 @@ parse_args() {
 }
 
 sub_help() {
-    echo "Usage: $progName <subcommand> -e ENVIRONMENT [-e ENVIRONMENT...] [-c COMPONENT] [-d]"
+    echo "Usage: $progName <subcommand> -e ENVIRONMENT [-e ENVIRONMENT...] [-c COMPONENT] [-p key=value ] [-d]"
     echo ""
     echo "Subcommands:"
     echo "    clean     Clean the compile folder (under _build)"
@@ -72,11 +84,10 @@ compile_environment() {
 
   echo "compiling environment: ${envs[@]}"
   for env in "${envs[@]}"; do
-    if [ ! -f "envs/$env.yaml" ]; then
-      echo "The env file envs/$env.yaml does not exist!" >&2
-      exit 2
+    if [ -f "envs/$env.yaml" ]; then
+      yenvs+=($env)
+      yparams+=(envs/$env.yaml)
     fi
-    yparams+=(envs/$env.yaml)
     environment=$env
   done
 
@@ -84,13 +95,29 @@ compile_environment() {
   # the last provided environment is what we use to name things with
   mkdir -p _build/$environment
 
-  indices=${!envs[*]}
+  # build the cli parameter input file
+  cparams=_build/$environment/cliParams.json
+  cliparamJson=$(for i in "${!cliparam[@]}"
+  do
+    echo "$i"
+    echo "${cliparam[$i]}"
+  done |
+  jq -cn -R 'reduce inputs as $param ({}; . + setpath($param | split("."); input))')
+  if [ -n "$cliparamJson" ]; then
+    echo "cli parameters provided: $cliparamJson"
+    echo "$cliparamJson" > $cparams
+  else
+    echo "no overrides"
+  fi
+  touch $cparams
+
+  indices=${!yenvs[*]}
   for i in $indices; do
-    jparams[$i]=_build/$environment/${envs[$i]}.json
+    jparams[$i]=_build/$environment/${yenvs[$i]}.json
     cat ${yparams[$i]} | yaml2json > ${jparams[$i]}
   done
   # merge all environs
-  cat ${jparams[@]} | jq --slurp 'reduce .[] as $item ({}; . * $item)' > _build/$environment/parameters.json
+  cat ${jparams[@]} $cparams | jq --slurp 'reduce .[] as $item ({}; . * $item)' > _build/$environment/parameters.json
 
 }
 

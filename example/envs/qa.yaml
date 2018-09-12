@@ -1,1 +1,7 @@
 myenvspecicvar: qa
+param: invaluable
+my:
+  other:
+    env:
+      specific:
+        variable: file

@@ -11,8 +11,10 @@ script:
   - docker-compose run --rm kt clean -d
   - docker-compose run --rm kt compile -e qa
   - docker-compose run --rm kt compile -e qa -d
-  - docker-compose run --rm kt compile -e preprod -c mycomponent
-  - docker-compose run --rm kt compile -e preprod -c mycomponent -d
+  - docker-compose run --rm kt compile -e qa -c mycomponent
+  - docker-compose run --rm kt compile -e qa -c mycomponent -d
+  - docker-compose run --rm kt compile -e preprod -c mycomponent -p param=valuable -p my.other.env.specific.variable=param
+  - docker-compose run --rm kt compile -e preprod -c mycomponent -p param=valuable -p my.other.env.specific.variable=param -d
 
 after_success:
   - bin/deploy "${TRAVIS_TAG:-dev}"

@@ -30,12 +30,16 @@ You can now run the tool as required with `docker-compose run --rm kt <command>`
 
 ### Command line flags
 
-`kt` has two flags to use when running the commands above:
+`kt` supports the following flags to use when running the commands above:
 
 * -e ENVIRONMENT  The environment to deploy to (name of parameter file in 'env' folder sans .yaml).
-  Multiple environment files can be given by using this flag multiple times. 
+  Multiple environment files can be given by using this flag multiple times.
 * -d Provides a 'dry run' mode to see what commands WOULD have been executed.
 * -c COMPONENT  The component (a subfolder under your templates dir) you want to deploy. You can group components inside folders and go arbitrarily deep. To deploy a component inside a group specify the path eg group/component1.
+* -p key=value  Provide template parameter key/values via the command line. Supports nested keys as well.
+  ```
+  kt compile -e development -e cerberus -p my.nested.key=value -p rootLevelKey=value
+  ```
 
 ## Conventions
 
@@ -50,7 +54,7 @@ The `kt` tool assumes the following conventions of your project:
 
 The templating available to you for files in the `templates` folder is using the gomplate cli tool, so visit [their docs](https://gomplate.hairyhenderson.ca/syntax/) for a list of templating functions available to you.
 
-On top of the gomplate functions, `kt` adds in the following additional power that is specific to creating Kubernetes manifest templates:
+On top of the gomplate functions, `kt` adds in the following additional power that is specific to creating templates:
 
 * Reference `datasource "config"` in a template to pull out the values that you specify in your `envs` files, eg `{{ $config := (datasource "config") }}` will give you a variable that you can access for env values using dot notation such as `{{ $config.envValue }}` where `envValue` is the YAML key in each of your `envs` files.
 * You are able to access all other template contents from a template using `gomplate`'s `file.Read` function. just specify the relative path from the root folder of the project as the relative path, eg `{{ file.Read "templates/mycomponent/config-map.yaml" }}` to access the contents of the `templates/mycomponent/config-map.yaml` file. _NOTE: To avoid circular dependencies and other issues, note that including any other template will be done without any template compilation - it is the raw file from disk._
@@ -60,6 +64,8 @@ On top of the gomplate functions, `kt` adds in the following additional power th
 The template files are joined in alphabetical order. This means that one can control the order in which objects are applied to the Kubernetes API server by simply prefixing files with numbers to force the ordering.
 
 If multiple environment files are given on the command line, the order of environments given is important. Environments given last will take precedence. Values in later environment files will clobber those same values in previous environments.
+
+Individual template parameters provided on the command line will take precedence and override any existing parameter of the same name.
 
 Given the below example of specifying two environments, values provided in cerberus.yaml will overwrite any matching values in development.yaml. Additionally, any cloudformation stacks being provisioned will be prefixed with the environment name `cerberus`.
 ```
