@@ -169,13 +169,6 @@ sub_deploy() {
 
 sub_delete() {
   sub_compile
-  for f in $(find _build/$environment/$componentBuildPath/templates/ -type f -name "*.yaml" \
-    | grep -v "/$cfnSubfolder/" \
-    | sort -r); do
-    if [ $(is_empty_file $f) != "True" ]; then
-      kubectl delete -f $f
-    fi
-  done
   for f in $(find _build/$environment/$componentBuildPath/templates/ -type f -path "*/$cfnSubfolder/*" -name "*.yaml" | sort); do
     stackup $environment-$(basename $f .yaml) down
   done
