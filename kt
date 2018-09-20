@@ -1,9 +1,9 @@
-#! /bin/bash
+#!/usr/bin/env bash
 
 set -eo pipefail
 
 DEBUG=""
-
+FORCE=""
 progName=$(basename $0)
 componentBuildPath="_all"
 componentTemplatePath=""
@@ -15,7 +15,7 @@ cliparamJson=""
 cfnSubfolder="cfn"
 
 parse_args() {
-  while getopts ":e:dc:p:" opt; do
+  while getopts ":e:fdc:p:" opt; do
     case "${opt}" in
       e)
         if [[ "$OPTARG" == "" ]]; then
@@ -23,6 +23,9 @@ parse_args() {
           exit 1
         fi
         envs+=($OPTARG)
+        ;;
+      f)
+        FORCE="ON"
         ;;
       d)
         DEBUG="ON"
@@ -32,7 +35,6 @@ parse_args() {
           echo "-c needs a template folder (component)" >&2
           exit 1
         fi
-
         componentTemplatePath=$OPTARG
         componentBuildPath=$OPTARG
         ;;
@@ -47,7 +49,8 @@ parse_args() {
         cliparam[$key]=$value
         ;;
       *)
-        echo "Invalid argument passed: -$opt" >&2
+        echo "Invalid argument passed: -$OPTARG" >&2
+        sub_help
         exit 1
         ;;
     esac
@@ -55,7 +58,7 @@ parse_args() {
 }
 
 sub_help() {
-    echo "Usage: $progName <subcommand> -e ENVIRONMENT [-e ENVIRONMENT...] [-c COMPONENT] [-p key=value ] [-d]"
+    echo "Usage: $progName <subcommand> -e ENVIRONMENT [-e ENVIRONMENT...] [-c COMPONENT] [-p key=value ] [-d] [-f]"
     echo ""
     echo "Subcommands:"
     echo "    clean     Clean the compile folder (under _build)"
@@ -63,6 +66,9 @@ sub_help() {
     echo "    validate  Validate the compiled templates against a Kubernetes API server"
     echo "    deploy    Apply the compiled templates to a Kubernetes API server"
     echo "    delete    Delete the items in the compiled templates on a Kubernetes API server"
+    echo "Flags:"
+    echo "    -d        DEBUG mode"
+    echo "    -f        FORCE mode: Ignore errors when trying to delete Kubernetes objects. For delete command only."
     echo ""
 }
 
@@ -173,7 +179,11 @@ sub_delete() {
     | grep -v "/$cfnSubfolder/" \
     | sort -r); do
     if [ $(is_empty_file $f) != "True" ]; then
-      kubectl delete -f $f
+      if [ -n "$FORCE" ]; then
+        kubectl delete -f $f > /dev/null 2>&1 || true
+      else
+        kubectl delete -f $f
+      fi
     fi
   done
   for f in $(find _build/$environment/$componentBuildPath/templates/ -type f -path "*/$cfnSubfolder/*" -name "*.yaml" | sort); do
@@ -200,7 +210,11 @@ case $subcommand in
         echo "componentBuildPath: $componentBuildPath"
         echo "componentTemplatePath: $componentTemplatePath"
         echo "command: $subcommand"
-
+        if [ -n "$FORCE" ]; then
+          echo "--- FORCE MODE ON ---"
+          echo "Delete commands will ignore errors"
+          echo ""
+        fi
         if [ -n "$DEBUG" ]; then
           echo "--- DEBUG MODE ON ---"
           echo "The following commands would have been run without the -d switch:"
