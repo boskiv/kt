@@ -149,10 +149,13 @@ sub_validate() {
   sub_compile
 
   # TODO: create a change-set in stackup for validation?
-  find _build/$environment/$componentBuildPath/templates/ -type f -name "*.yaml" \
+  for f in $(find _build/$environment/$componentBuildPath/templates/ -type f -name "*.yaml" \
     | grep -v "/$cfnSubfolder/" \
-    | sort \
-    | xargs -n1 kubectl apply --validate --dry-run -f
+    | sort); do
+    if [ $(is_empty_file $f) != "True" ]; then
+      kubectl apply --validate --dry-run -f $f
+    fi
+  done
 }
 
 sub_deploy() {
