@@ -1,6 +1,6 @@
 FROM hairyhenderson/gomplate:v2.6.0 as gomplate
 
-FROM lachlanevenson/k8s-kubectl:v1.9.8 as kubectl
+FROM lachlanevenson/k8s-kubectl:v1.11.4 as kubectl
 
 FROM alpine:3.7 as app
 COPY --from=gomplate /gomplate /usr/bin/
