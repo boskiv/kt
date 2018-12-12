@@ -4,6 +4,8 @@ set -eo pipefail
 
 DEBUG=""
 FORCE=""
+PROCESS_CFN="TRUE"
+PROCESS_K8S="TRUE"
 progName=$(basename $0)
 componentBuildPath="_all"
 componentTemplatePath=""
@@ -15,7 +17,7 @@ cliparamJson=""
 cfnSubfolder="cfn"
 
 parse_args() {
-  while getopts ":e:fdc:p:" opt; do
+  while getopts ":e:fdc:t:p:" opt; do
     case "${opt}" in
       e)
         if [[ "$OPTARG" == "" ]]; then
@@ -29,6 +31,14 @@ parse_args() {
         ;;
       d)
         DEBUG="ON"
+        ;;
+      t)
+        if ! [[ "$OPTARG" =~ ^(cfn|k8s)$ ]]; then
+          echo "-t needs a template type [cfn|k8s]" >&2
+          exit 1
+        fi
+        ! [[ "$OPTARG" =~ ^cfn$ ]] && PROCESS_CFN="" || true
+        ! [[ "$OPTARG" =~ ^k8s$ ]] && PROCESS_K8S="" || true
         ;;
       c)
         if [[ "$OPTARG" == "" ]]; then
@@ -58,7 +68,7 @@ parse_args() {
 }
 
 sub_help() {
-    echo "Usage: $progName <subcommand> -e ENVIRONMENT [-e ENVIRONMENT...] [-c COMPONENT] [-p key=value ] [-d] [-f]"
+    echo "Usage: $progName <subcommand> -e ENVIRONMENT [-e ENVIRONMENT...] [-c COMPONENT] [-t TEMPLATE_TYPE] [-p key=value ] [-d] [-f]"
     echo ""
     echo "Subcommands:"
     echo "    clean     Clean the compile folder (under _build)"
@@ -69,6 +79,7 @@ sub_help() {
     echo "Flags:"
     echo "    -d        DEBUG mode"
     echo "    -f        FORCE mode: Ignore errors when trying to delete Kubernetes objects. For delete command only."
+    echo "    -t        Only process templates of specified type [k8s|cfn]"
     echo ""
 }
 
@@ -147,51 +158,62 @@ sub_compile() {
 
 sub_validate() {
   sub_compile
-
   # TODO: create a change-set in stackup for validation?
-  for f in $(find _build/$environment/$componentBuildPath/templates/ -type f -name "*.yaml" \
-    | grep -v "/$cfnSubfolder/" \
-    | sort); do
-    if [ $(is_empty_file $f) != "True" ]; then
-      kubectl apply --validate --dry-run -f $f
-    fi
-  done
+
+  if [[ -n "$PROCESS_K8S" ]]; then
+    for f in $(find _build/$environment/$componentBuildPath/templates/ -type f -name "*.yaml" \
+      | grep -v "/$cfnSubfolder/" \
+      | sort); do
+      if [ $(is_empty_file $f) != "True" ]; then
+        kubectl apply --validate --dry-run -f $f
+      fi
+    done
+  fi
 }
 
 sub_deploy() {
   sub_compile
 
-  for f in $(find _build/$environment/$componentBuildPath/templates/ -type f -name "*.yaml" -path "*/$cfnSubfolder/*" | sort); do
-    if [ $(is_empty_file $f) != "True" ]; then
-      stackup $environment-$(basename $f .yaml) up -t $f
-    fi
-  done
+  if [[ -n "$PROCESS_CFN" ]]; then
+    for f in $(find _build/$environment/$componentBuildPath/templates/ -type f -name "*.yaml" -path "*/$cfnSubfolder/*" | sort); do
+      if [ $(is_empty_file $f) != "True" ]; then
+        stackup $environment-$(basename $f .yaml) up -t $f
+      fi
+    done
+  fi
 
-  for f in $(find _build/$environment/$componentBuildPath/templates/ -type f -name "*.yaml" \
-    | grep -v "/$cfnSubfolder/" \
-    | sort); do
-    if [ $(is_empty_file $f) != "True" ]; then
-      kubectl apply -f $f
-    fi
-  done
+  if [[ -n "$PROCESS_K8S" ]]; then
+    for f in $(find _build/$environment/$componentBuildPath/templates/ -type f -name "*.yaml" \
+      | grep -v "/$cfnSubfolder/" \
+      | sort); do
+      if [ $(is_empty_file $f) != "True" ]; then
+        kubectl apply -f $f
+      fi
+    done
+  fi
 }
 
 sub_delete() {
   sub_compile
-  for f in $(find _build/$environment/$componentBuildPath/templates/ -type f -name "*.yaml" \
-    | grep -v "/$cfnSubfolder/" \
-    | sort -r); do
-    if [ $(is_empty_file $f) != "True" ]; then
-      if [ -n "$FORCE" ]; then
-        kubectl delete -f $f > /dev/null 2>&1 || true
-      else
-        kubectl delete -f $f
+  if [[ -n "$PROCESS_K8S" ]]; then
+    for f in $(find _build/$environment/$componentBuildPath/templates/ -type f -name "*.yaml" \
+      | grep -v "/$cfnSubfolder/" \
+      | sort -r); do
+      if [ $(is_empty_file $f) != "True" ]; then
+        if [ -n "$FORCE" ]; then
+          kubectl delete -f $f > /dev/null 2>&1 || true
+        else
+          kubectl delete -f $f
+        fi
       fi
-    fi
-  done
-  for f in $(find _build/$environment/$componentBuildPath/templates/ -type f -path "*/$cfnSubfolder/*" -name "*.yaml" | sort); do
-    stackup $environment-$(basename $f .yaml) down
-  done
+    done
+  fi
+
+  if [[ -n "$PROCESS_CFN" ]]; then
+    for f in $(find _build/$environment/$componentBuildPath/templates/ -type f -path "*/$cfnSubfolder/*" -name "*.yaml" | sort); do
+      stackup $environment-$(basename $f .yaml) down
+    done
+  fi
 }
 
 
@@ -216,6 +238,16 @@ case $subcommand in
         if [ -n "$FORCE" ]; then
           echo "--- FORCE MODE ON ---"
           echo "Delete commands will ignore errors"
+          echo ""
+        fi
+        if [ -n "$PROCESS_K8S" ]; then
+          echo "--- PROCESS_K8S ON ---"
+          echo "Kubernetes templates will be processed"
+          echo ""
+        fi
+        if [ -n "$PROCESS_CFN" ]; then
+          echo "--- PROCESS_CFN ON ---"
+          echo "Cloudformation templates will be processed"
           echo ""
         fi
         if [ -n "$DEBUG" ]; then
