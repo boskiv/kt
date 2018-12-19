@@ -236,22 +236,22 @@ case $subcommand in
         echo "componentTemplatePath: $componentTemplatePath"
         echo "command: $subcommand"
         if [ -n "$FORCE" ]; then
-          echo "--- FORCE MODE ON ---"
+          echo "*** FORCE MODE ON ***"
           echo "Delete commands will ignore errors"
           echo ""
         fi
         if [ -n "$PROCESS_K8S" ]; then
-          echo "--- PROCESS_K8S ON ---"
+          echo "*** PROCESS_K8S ON ***"
           echo "Kubernetes templates will be processed"
           echo ""
         fi
         if [ -n "$PROCESS_CFN" ]; then
-          echo "--- PROCESS_CFN ON ---"
+          echo "*** PROCESS_CFN ON ***"
           echo "Cloudformation templates will be processed"
           echo ""
         fi
         if [ -n "$DEBUG" ]; then
-          echo "--- DEBUG MODE ON ---"
+          echo "*** DEBUG MODE ON ***"
           echo "The following commands would have been run without the -d switch:"
           echo ""
 
